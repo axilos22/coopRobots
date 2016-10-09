@@ -1,0 +1,6 @@
+
+<launch>
+  <node name="player_node" pkg="soccer_player" type="simplePlayer.py" output="screen">
+		<param name="name" value="blue2" type="str"/>
+	  </node>
+</launch>

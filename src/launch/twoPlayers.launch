@@ -1,0 +1,16 @@
+
+<launch>
+	<node name="player1_node" pkg="soccer_player" type="twoPlayers.py">
+		<param name="name" type="str" value="blue2"/>
+		<param name="teamchannel" type="str" value="/teamspeak"/>
+		<param name="isLeading" type="bool" value="true"/>
+		<param name="partner" type="str" value="blue3"/>
+  </node>
+	<node name="player2_node" pkg="soccer_player" type="twoPlayers.py">
+		<param name="name" type="str" value="blue3"/>
+		<param name="teamchannel" type="str" value="/teamspeak"/>
+		<param name="isLeading" type="bool" value="false"/>
+		<param name="partner" type="str" value="blue2"/>
+  </node>
+	<!--<node name="rqt_console" pkg="rqt_console" type="rqt_console"/>-->
+</launch>

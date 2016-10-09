@@ -1,0 +1,11 @@
+
+<launch>
+  <node name="player1_node" pkg="soccer" type="coopPlayers.py" output="screen">
+		<param name="p1_name" value="blue1" type="str"/>
+		<param name="p2_name" value="blue2" type="str"/>
+	  </node>
+  <node name="player2_node" pkg="soccer" type="coopPlayers.py" output="screen">
+	<param name="p1_name" value="blue2" type="str"/>
+	<param name="p2_name" value="blue1" type="str"/>
+  </node>
+</launch>
