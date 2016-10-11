@@ -42,12 +42,13 @@ def checkSurrounding():
 		if distance<approachThreshold:
 			return el
 def isScored():
-	if player.rel["yellow_goal"][0]>minDistanceToGoal:
+	if player.rel["yellow_goal"][0]<minDistanceToGoal:
+		rospy.loginfo("I probably scored. FWI:goal dist: %s",player.rel["yellow_goal"][0])
 		return True
 	else:
 		return False
 def stopNode():
-	robot.move(0,0)
+	player.move(0,0)
 	rospy.logwarn("The node %s will now shutdown",name)
 def goto(location):	
 	turnToward(location)
@@ -134,4 +135,4 @@ while isScored()==False and not rospy.is_shutdown():
 		rospy.loginfo("%s:Published me",name)
 	rospy.sleep(1)
 	loop+=1
-rospy.loginfo("I probably scored. FWI:goal dist: %s",player.rel["yellow_goal"][0])
+rospy.loginfo("Reached the end of the node. Exitting...")

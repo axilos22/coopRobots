@@ -1,6 +1,6 @@
 
 <launch>
-	<node name="player1_node" pkg="soccer_player" type="twoPlayers.py">
+	<node name="player1_node" pkg="soccer_player" type="twoPlayers.py" output="screen">
 		<param name="name" type="str" value="blue2"/>
 		<param name="teamchannel" type="str" value="/teamspeak"/>
 		<param name="isLeading" type="bool" value="true"/>
