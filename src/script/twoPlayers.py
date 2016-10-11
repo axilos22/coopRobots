@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # --------2 PLAYERS--------
-#SETUP
+#################### SETUP #################### 
 import rospy
 from std_msgs.msg import String
 import math
@@ -8,7 +8,6 @@ import random
 #module setup
 rospy.init_node("player_node",anonymous=True)
 rate=rospy.Rate(10)
-global name
 name=rospy.get_param("~name","blue1")
 teamChannel=rospy.get_param("~teamchannel","teamspeak")
 partner=rospy.get_param("~partner","blue2")
@@ -31,11 +30,25 @@ minDistanceToGoal = .4
 #Surrounding knwoledge
 minProximity=.5
 players=["blue1","blue2","blue3","yellow1","yellow2","yellow3"]
+players.remove(name) #removed myselft from the list of players
 #linear and angular speeds for turning around ball
 ratio = 5.5
 v = 500
 omega = -v/ratio
-##### FUNCTIONS #####
+#################### FUNCTIONS #################### 
+def checkSurrounding():
+	for el in players:
+		distance=player.rel[el][0]
+		if distance<approachThreshold:
+			return el
+def isScored():
+	if player.rel["yellow_goal"][0]>minDistanceToGoal:
+		return True
+	else:
+		return False
+def stopNode():
+	robot.move(0,0)
+	rospy.logwarn("The node %s will now shutdown",name)
 def goto(location):	
 	turnToward(location)
 	rospy.logdebug("Turning toward done")
@@ -98,21 +111,24 @@ def shoot():
 def behave(msg):
 	global once
 	if msg.data==name:
-		rospy.loginfo("My turn")
 		once=False
+		rospy.loginfo("My turn")
 		goto("ball")
 		passBall("yellow_goal")
 		pub.publish(partner)
 	else:
 		rospy.loginfo("Did nothing because not leading")
 	return
-#### EXECUTIVE SECTION #### 
+#################### EXECUTIVE SECTION #################### 
+#INIT PART
 player.move(0,0) #player is initially stopped
 loop=0
 pub=rospy.Publisher(teamChannel,String,queue_size=1)
 rospy.Subscriber(teamChannel,String,behave)
+rospy.on_shutdown(stopNode)
 once=True
-while player.rel["yellow_goal"][0]>minDistanceToGoal or player.rel["yellow_goal"][0]-player.rel["ball"][0]<.5:
+#LOOP PART
+while isScored()==False and not rospy.is_shutdown():
 	if isLeading==True and once==True:
 		pub.publish(name)
 		rospy.loginfo("%s:Published me",name)
