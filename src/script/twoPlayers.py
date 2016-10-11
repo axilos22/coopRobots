@@ -25,8 +25,12 @@ approachSpeed = 1000
 sleepTime = .1
 turnThreshold = .09
 approachThreshold = .2
+collisionThreshold=.12
 contactDistancewithBall=.09
-minDistanceToGoal = .2
+minDistanceToGoal=.2
+minOrientationToGoal= .6
+sleepTimeAvoidance=1
+maxFieldLength=4
 #Surrounding knwoledge
 minProximity=.5
 players=["blue1","blue2","blue3","yellow1","yellow2","yellow3"]
@@ -36,13 +40,34 @@ ratio = 5.5
 v = 500
 omega = -v/ratio
 #################### FUNCTIONS #################### 
+def runMvtCheck():
+	el = checkSurrounding()
+	rospy.logwarn("Collision warning: obj %s",el)
+	if el != "":
+		#Avoid collision
+		player.move(0,0)
+		while -player.rel[el][1] < math.pi/2:
+			player.move(0,100)
+			rospy.sleep(sleepTime)
+		player.move(1000,0)
+		rospy.sleep(sleepTimeAvoidance)
+		return True
+	else:
+		return False
 def checkSurrounding():
+	collider=""
 	for el in players:
 		distance=player.rel[el][0]
-		if distance<approachThreshold:
-			return el
+		rospy.loginfo("checked %s d=%f",el,distance)
+		if distance<collisionThreshold:
+			collider=el
+	return collider
 def isScored():
-	if player.rel["yellow_goal"][0]<minDistanceToGoal:
+	relDGoal= player.rel["yellow_goal"][0]
+	relDBall= player.rel["ball"][0]
+	relOGoal= player.rel["yellow_goal"][1]
+	relOBall= player.rel["ball"][1]
+	if abs(relDGoal-relDBall)<minDistanceToGoal and abs(relOGoal-relOBall)<minOrientationToGoal:
 		rospy.loginfo("I probably scored. FWI:goal dist: %s",player.rel["yellow_goal"][0])
 		return True
 	else:
@@ -50,12 +75,14 @@ def isScored():
 def stopNode():
 	player.move(0,0)
 	rospy.logwarn("The node %s will now shutdown",name)
-def goto(location):	
+def goto(location):
 	turnToward(location)
 	rospy.logdebug("Turning toward done")
-	dist2location=99999
+	dist2location=maxFieldLength
 	while dist2location>approachThreshold:
 		dist2location=approach(location)
+		if runMvtCheck()==True:
+			turnToward(location)
 	rospy.logdebug("location reached")
 	return
 def checkObstacle():
@@ -118,7 +145,8 @@ def behave(msg):
 		passBall("yellow_goal")
 		pub.publish(partner)
 	else:
-		rospy.loginfo("Did nothing because not leading")
+		#rospy.loginfo("Did nothing because not leading")
+		rospy.loginfo("Not my turn, I go toward goal")
 	return
 #################### EXECUTIVE SECTION #################### 
 #INIT PART
@@ -134,8 +162,7 @@ while not rospy.is_shutdown():
 		pub.publish(name)
 		rospy.loginfo("[%d] %s:Published me",loop,name)
 	if isScored()==True:
-		rospy.loginfo("[%d] GOAL !!!",loop)
-		player.move(0,500)
+		rospy.loginfo("[%d] GOAL of %s !!!",loop,name)
 		break
 	rospy.sleep(1)
 	loop+=1
