@@ -26,7 +26,7 @@ sleepTime = .1
 turnThreshold = .09
 approachThreshold = .2
 contactDistancewithBall=.09
-minDistanceToGoal = .4
+minDistanceToGoal = .2
 #Surrounding knwoledge
 minProximity=.5
 players=["blue1","blue2","blue3","yellow1","yellow2","yellow3"]
@@ -108,7 +108,7 @@ def shoot():
 	while player.rel["ball"][0]>contactDistancewithBall:
 		player.move(1000,0)
 	player.move(0,0)
-#### COMMUNICATION ####
+#################### COMMUNICATION #################### 
 def behave(msg):
 	global once
 	if msg.data==name:
@@ -129,10 +129,14 @@ rospy.Subscriber(teamChannel,String,behave)
 rospy.on_shutdown(stopNode)
 once=True
 #LOOP PART
-while isScored()==False and not rospy.is_shutdown():
+while not rospy.is_shutdown():
 	if isLeading==True and once==True:
 		pub.publish(name)
-		rospy.loginfo("%s:Published me",name)
+		rospy.loginfo("[%d] %s:Published me",loop,name)
+	if isScored()==True:
+		rospy.loginfo("[%d] GOAL !!!",loop)
+		player.move(0,500)
+		break
 	rospy.sleep(1)
 	loop+=1
 rospy.loginfo("Reached the end of the node. Exitting...")
