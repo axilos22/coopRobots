@@ -1,0 +1,4 @@
+roscore
+webots ~/catkin_ws/src/try_soccer/worlds/try_soccer.wbt
+rosrun soccer pose_manager.py
+roslaunch soccer_player twoPlayers.launch
