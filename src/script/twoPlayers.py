@@ -40,13 +40,17 @@ ratio = 5.5
 v = 500
 omega = -v/ratio
 ### Proportional gain
-Kro= 500
-Kalpha= 550
-Kbeta= -400
+#~ Kro=500
+#~ Kalpha=800
+#~ Kbeta=-100
+#Nice values
+Kro=799
+Kalpha=800
+Kbeta=-100
 #################### FUNCTIONS #################### 
-desiredPose=[0,0,0]
-def errorVector():
-	[x,y,th] = poseVector()
+#~ desiredPose=[0,0,math.pi]
+desiredPose=[0,0,-10000]
+def errorVector(x,y,th):
 	deltaX=desiredPose[0]-x
 	deltaY=desiredPose[1]-y
 	deltaTh=desiredPose[2]-th
@@ -56,26 +60,34 @@ def poseVector():
 	y=player._pose[name].y
 	th=player._pose[name].theta
 	return [x,y,th]
-def ro():
-	global deltaX
-	global deltaY
-	[deltaX,deltaY,deltaTheta] = errorVector()
+def ro(deltaX,deltaY):
 	return math.sqrt(math.pow(deltaX,2)+math.pow(deltaY,2))
-def alpha():
-	[x,y,th] = poseVector()
-	[deltaX,deltaY,deltaTheta] = errorVector()
-	#~ rospy.loginfo("robotPose [%f,%f,%f]",x,y,th)
-	#~ rospy.loginfo("ErrVect [%f,%f,%f]",deltaX,deltaY,deltaTheta)
-	return -th+math.atan2(deltaX,deltaY)
-def beta():
-	[x,y,th] = poseVector()
-	return -th-alpha()
+def alpha(th,deltaX,deltaY):
+	return -th+math.atan2(deltaY,deltaX)
+def beta(th,alpha):
+	return -th-alpha
 def vw():
-	global Kro
-	global Kalpha
-	global Kbeta
-	return [Kro*ro(), \
-	Kalpha*alpha()+Kbeta*beta()]
+	[x,y,th]=poseVector()
+	[deltaX,deltaY,deltaTh]=errorVector(x,y,th)
+	ALPHA=alpha(th,deltaX,deltaY)
+	RO=ro(deltaX,deltaY)
+	BETA=beta(th,ALPHA)
+	v=Kro*RO
+	w=Kalpha*ALPHA+Kbeta*BETA
+	return [v,w]
+def filterVW(v,w):
+	if v>1000:
+		v=1000
+	if v<-1000:
+		v=-1000
+	#prevent minimum speed to go too low
+	if v<300:
+		v=300
+	#~ if w>1000:
+		#~ w=1000
+	#~ if w<-1000:
+		#~ w=-1000
+	return [v,w]
 def runMvtCheck():
 	el = checkSurrounding()
 	rospy.logwarn("Collision warning: obj %s",el)
@@ -205,9 +217,11 @@ player.move(0,0) #player is initially stopped
 loop=0
 rospy.on_shutdown(stopNode)
 while not rospy.is_shutdown():
+	#~ desiredPose=[player._pose["ball"].x,player._pose["ball"].y,player._pose["yellow_goal"].theta]
 	[v,w] = vw()
+	[v,w]=filterVW(v,w)
+	rospy.loginfo("[%d] applied V=%f W=%f",loop,v,w)
 	player.move(v,w)
 	loop+=1
-	rospy.loginfo("[%d] applied V=%f W=%f",loop,v,w)
 	rate.sleep()
 rospy.loginfo("Reached the end of the node. Exitting...")
