@@ -7,7 +7,7 @@ import math
 import random
 #module setup
 rospy.init_node("player_node",anonymous=True)
-rate=rospy.Rate(10)
+rate=rospy.Rate(30)
 name=rospy.get_param("~name","blue1")
 teamChannel=rospy.get_param("~teamchannel","teamspeak")
 partner=rospy.get_param("~partner","blue2")
@@ -39,7 +39,43 @@ players.remove(name) #removed myselft from the list of players
 ratio = 5.5
 v = 500
 omega = -v/ratio
+### Proportional gain
+Kro= 500
+Kalpha= 550
+Kbeta= -400
 #################### FUNCTIONS #################### 
+desiredPose=[0,0,0]
+def errorVector():
+	[x,y,th] = poseVector()
+	deltaX=desiredPose[0]-x
+	deltaY=desiredPose[1]-y
+	deltaTh=desiredPose[2]-th
+	return [deltaX,deltaY,deltaTh]
+def poseVector():
+	x=player._pose[name].x
+	y=player._pose[name].y
+	th=player._pose[name].theta
+	return [x,y,th]
+def ro():
+	global deltaX
+	global deltaY
+	[deltaX,deltaY,deltaTheta] = errorVector()
+	return math.sqrt(math.pow(deltaX,2)+math.pow(deltaY,2))
+def alpha():
+	[x,y,th] = poseVector()
+	[deltaX,deltaY,deltaTheta] = errorVector()
+	#~ rospy.loginfo("robotPose [%f,%f,%f]",x,y,th)
+	#~ rospy.loginfo("ErrVect [%f,%f,%f]",deltaX,deltaY,deltaTheta)
+	return -th+math.atan2(deltaX,deltaY)
+def beta():
+	[x,y,th] = poseVector()
+	return -th-alpha()
+def vw():
+	global Kro
+	global Kalpha
+	global Kbeta
+	return [Kro*ro(), \
+	Kalpha*alpha()+Kbeta*beta()]
 def runMvtCheck():
 	el = checkSurrounding()
 	rospy.logwarn("Collision warning: obj %s",el)
@@ -151,19 +187,27 @@ def behave(msg):
 #################### EXECUTIVE SECTION #################### 
 #INIT PART
 player.move(0,0) #player is initially stopped
-loop=0
-pub=rospy.Publisher(teamChannel,String,queue_size=1)
-rospy.Subscriber(teamChannel,String,behave)
-rospy.on_shutdown(stopNode)
-once=True
+#~ loop=0
+#~ pub=rospy.Publisher(teamChannel,String,queue_size=1)
+#~ rospy.Subscriber(teamChannel,String,behave)
+#~ rospy.on_shutdown(stopNode)
+#~ once=True
 #LOOP PART
+#~ while not rospy.is_shutdown():
+	#~ if isLeading==True and once==True:
+		#~ pub.publish(name)
+		#~ rospy.loginfo("[%d] %s:Published me",loop,name)
+	#~ if isScored()==True:
+		#~ rospy.loginfo("[%d] GOAL of %s !!!",loop,name)
+		#~ break
+	#~ rospy.sleep(1)
+	#~ loop+=1
+loop=0
+rospy.on_shutdown(stopNode)
 while not rospy.is_shutdown():
-	if isLeading==True and once==True:
-		pub.publish(name)
-		rospy.loginfo("[%d] %s:Published me",loop,name)
-	if isScored()==True:
-		rospy.loginfo("[%d] GOAL of %s !!!",loop,name)
-		break
-	rospy.sleep(1)
+	[v,w] = vw()
+	player.move(v,w)
 	loop+=1
+	rospy.loginfo("[%d] applied V=%f W=%f",loop,v,w)
+	rate.sleep()
 rospy.loginfo("Reached the end of the node. Exitting...")
