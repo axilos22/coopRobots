@@ -81,7 +81,7 @@ def vw():
 	w=Kalpha*ALPHA+Kbeta*BETA
 	return [v,w]
 def filterVW(v,w):
-	#~ v=7764*v/50
+	#~ v=7764*v/50 NOT working
 	#~ w=-644*w/50
 	if v>1000:
 		v=1000
@@ -160,16 +160,15 @@ def turnToward(location,threshold=turnThreshold):
 		rospy.sleep(sleepTime)
 		player.move(0,0)
 	return
-#approach has to be iterative, we can add additional watchdogs around it
 def approach(location,threshold=approachThreshold):
+	"""approach has to be iterative, we can add additional watchdogs around it"""
 	player.move(approachSpeed,0)
 	rospy.sleep(sleepTime) 
 	player.move(0,0)
 	#return the current distance to goal
 	return player.rel[location][0]
-#passBall allow to pass the ball to a receiver (player or not)
-#it suppose that we are close to ball
 def passBall(receiver):
+	"""passBall allow to pass the ball to a receiver (player or not) it suppose that we are close to ball """
 	#Turn fron pi/2 
 	while -player.rel["ball"][1] < math.pi/2:
 		player.move(0,100)
@@ -186,7 +185,7 @@ def passBall(receiver):
 	rospy.sleep(8)
 	return
 def shoot():
-	#as long as no contact, go forward
+	"""as long as no contact, go forward"""
 	while player.rel["ball"][0]>contactDistancewithBall:
 		player.move(1000,0)
 	player.move(0,0)
