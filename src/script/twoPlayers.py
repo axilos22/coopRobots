@@ -5,6 +5,7 @@ import rospy
 from std_msgs.msg import String
 import math
 import random
+import matplotlib.pyplot as plt
 #module setup
 rospy.init_node("player_node",anonymous=True)
 rate=rospy.Rate(30)
@@ -47,9 +48,11 @@ omega = -v/ratio
 Kro=799
 Kalpha=800
 Kbeta=-100
+## PLOTTING ##
+poseData=[]
 #################### FUNCTIONS #################### 
 #~ desiredPose=[0,0,math.pi]
-desiredPose=[0,0,-10000]
+desiredPose=[0,0,math.pi]
 def errorVector(x,y,th):
 	deltaX=desiredPose[0]-x
 	deltaY=desiredPose[1]-y
@@ -67,7 +70,9 @@ def alpha(th,deltaX,deltaY):
 def beta(th,alpha):
 	return -th-alpha
 def vw():
+	global poseData
 	[x,y,th]=poseVector()
+	poseData.append([x,y,th])
 	[deltaX,deltaY,deltaTh]=errorVector(x,y,th)
 	ALPHA=alpha(th,deltaX,deltaY)
 	RO=ro(deltaX,deltaY)
@@ -76,6 +81,8 @@ def vw():
 	w=Kalpha*ALPHA+Kbeta*BETA
 	return [v,w]
 def filterVW(v,w):
+	#~ v=7764*v/50
+	#~ w=-644*w/50
 	if v>1000:
 		v=1000
 	if v<-1000:
@@ -225,3 +232,6 @@ while not rospy.is_shutdown():
 	loop+=1
 	rate.sleep()
 rospy.loginfo("Reached the end of the node. Exitting...")
+plt.plot(poseData)
+plt.legend(("x","y","th"))
+plt.show()
