@@ -12,6 +12,7 @@ rate=rospy.Rate(30)
 name=rospy.get_param("~name","blue1")
 teamChannel=rospy.get_param("~teamchannel","teamspeak")
 partner=rospy.get_param("~partner","blue2")
+opGoal=rospy.get_param("~oppositeGoal","yellow_goal")
 isLeading=rospy.get_param("~isLeading",False)
 rospy.loginfo("Node initialized: name=%s teamchannel=%s partner=%s isLeading=%d",name,teamChannel,partner,isLeading)
 #player setup
@@ -45,14 +46,14 @@ omega = -v/ratio
 #~ Kalpha=800
 #~ Kbeta=-100
 #Nice values
-Kro=799
-Kalpha=800
-Kbeta=-100
+Kro=3.0
+Kalpha=8.0
+Kbeta=-1.5
 ## PLOTTING ##
 poseData=[]
 #################### FUNCTIONS #################### 
 #~ desiredPose=[0,0,math.pi]
-desiredPose=[0,0,math.pi]
+desiredPose=[0,0,0]
 def errorVector(x,y,th):
 	deltaX=desiredPose[0]-x
 	deltaY=desiredPose[1]-y
@@ -79,17 +80,39 @@ def vw():
 	BETA=beta(th,ALPHA)
 	v=Kro*RO
 	w=Kalpha*ALPHA+Kbeta*BETA
+	#rescale to coordinates
+	[v,w]=rescale(v,w)
 	return [v,w]
-def filterVW(v,w):
-	#~ v=7764*v/50 NOT working
-	#~ w=-644*w/50
+def rescale(v,w,vMul=7764,vDiv=50,wMul=644,wDiv=50):
+	"""rescale(v,w,vMul,vDiv,wMul,wDiv) brings back the mesure of kinematics controller into the proportions of simulator.
+	Check https://www.cyberbotics.com/doc/guide/using-the-e-puck-robot for more info about the values."""
+	vOut=v*vMul/vDiv
+	wOut=w*wMul/wDiv
+	return [vOut,wOut]
+def isCloseToLocation(location,distThreshold=approachThreshold):
+	if player.rel[location][0] <distThreshold:
+		return True
+	else:
+		return False
+def getShootingPose():
+	[xg,yg]=[player._pose[opGoal].x,player._pose[opGoal].y]
+	[xb,yb]=[player._pose["ball"].x,player._pose["ball"].y]
+	#y=mx+b
+	m=(yb-yg)/(xb-xg)
+	b=yg-m*xg
+	rospy.loginfo("m=%f b=%f",m,b)
+	xs=xb+.1
+	ys=m*xs+b
+	rospy.loginfo("S=[%f,%f]",xs,ys)
+	return [xs,ys]
+def filterVW(v,w,minSpeed=200):
 	if v>1000:
 		v=1000
 	if v<-1000:
 		v=-1000
 	#prevent minimum speed to go too low
-	if v<300:
-		v=300
+	if v<minSpeed:
+		v=minSpeed
 	#~ if w>1000:
 		#~ w=1000
 	#~ if w<-1000:
@@ -223,11 +246,13 @@ player.move(0,0) #player is initially stopped
 loop=0
 rospy.on_shutdown(stopNode)
 while not rospy.is_shutdown():
-	#~ desiredPose=[player._pose["ball"].x,player._pose["ball"].y,player._pose["yellow_goal"].theta]
 	[v,w] = vw()
-	[v,w]=filterVW(v,w)
+	#~ [v,w]=filterVW(v,w)
 	rospy.loginfo("[%d] applied V=%f W=%f",loop,v,w)
 	player.move(v,w)
+	[xs,ys]=getShootingPose()
+	if isCloseToLocation("ball")==True:
+		break
 	loop+=1
 	rate.sleep()
 rospy.loginfo("Reached the end of the node. Exitting...")
