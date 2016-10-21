@@ -46,6 +46,9 @@ omega = -v/ratio
 #~ Kalpha=800
 #~ Kbeta=-100
 #Nice values
+#~ Kro=3.0
+#~ Kalpha=8.0
+#~ Kbeta=-1.5
 Kro=3.0
 Kalpha=8.0
 Kbeta=-1.5
@@ -93,6 +96,15 @@ def isCloseToLocation(location,distThreshold=approachThreshold):
 	if player.rel[location][0] <distThreshold:
 		return True
 	else:
+		return False
+def isCloseToLocation(x,y,distThreshold=.1):
+	[xr,yr,thr]=poseVector()
+	ro = math.sqrt(math.pow(x-xr,2)+math.pow(y-yr,2))
+	if ro <distThreshold:
+		rospy.logdebug("%f < %f",ro,distThreshold)
+		return True
+	else:
+		rospy.logdebug("%f > %f",ro,distThreshold)
 		return False
 def getShootingPose():
 	[xg,yg]=[player._pose[opGoal].x,player._pose[opGoal].y]
@@ -154,14 +166,25 @@ def stopNode():
 	player.move(0,0)
 	rospy.logwarn("The node %s will now shutdown",name)
 def goto(location):
-	turnToward(location)
-	rospy.logdebug("Turning toward done")
-	dist2location=maxFieldLength
-	while dist2location>approachThreshold:
-		dist2location=approach(location)
-		if runMvtCheck()==True:
-			turnToward(location)
-	rospy.logdebug("location reached")
+	global desiredPose
+	desiredPose = [player._pose[location].x,player._pose[location].y,0]
+	while isCloseToLocation(location)==False:
+		[v,w]=vw()
+		rospy.loginfo("applied V=%f W=%f",v,w)
+		player.move(v,w)
+		rospy.sleep(.3)
+	rospy.loginfo("location reached")
+	return
+def goto(x,y,th=0):
+	global desiredPose
+	desiredPose=[x,y,th]
+	while isCloseToLocation(x,y)==False:
+		[v,w]=vw()
+		#~ rospy.loginfo("applied V=%f W=%f",v,w)
+		player.move(v,w)
+		rate.sleep()
+		rate.sleep()
+	rospy.loginfo("location reached")
 	return
 def checkObstacle():
 	for el in players:
@@ -222,39 +245,26 @@ def behave(msg):
 		passBall("yellow_goal")
 		pub.publish(partner)
 	else:
-		#rospy.loginfo("Did nothing because not leading")
-		rospy.loginfo("Not my turn, I go toward goal")
+		rospy.loginfo("Not my turn")
 	return
 #################### EXECUTIVE SECTION #################### 
 #INIT PART
 player.move(0,0) #player is initially stopped
-#~ loop=0
-#~ pub=rospy.Publisher(teamChannel,String,queue_size=1)
-#~ rospy.Subscriber(teamChannel,String,behave)
-#~ rospy.on_shutdown(stopNode)
-#~ once=True
-#LOOP PART
-#~ while not rospy.is_shutdown():
-	#~ if isLeading==True and once==True:
-		#~ pub.publish(name)
-		#~ rospy.loginfo("[%d] %s:Published me",loop,name)
-	#~ if isScored()==True:
-		#~ rospy.loginfo("[%d] GOAL of %s !!!",loop,name)
-		#~ break
-	#~ rospy.sleep(1)
-	#~ loop+=1
 loop=0
 rospy.on_shutdown(stopNode)
 while not rospy.is_shutdown():
-	[v,w] = vw()
-	#~ [v,w]=filterVW(v,w)
-	rospy.loginfo("[%d] applied V=%f W=%f",loop,v,w)
-	player.move(v,w)
+	#~ [v,w] = vw()
+	#~ rospy.loginfo("[%d] applied V=%f W=%f",loop,v,w)
+	#~ player.move(v,w)
+	#~ goto("blue_goal")
 	[xs,ys]=getShootingPose()
-	if isCloseToLocation("ball")==True:
+	rospy.loginfo("going to: [%f,%f]",xs,ys)
+	goto(xs,ys)
+	if isCloseToLocation(xs,ys)==True:
 		break
 	loop+=1
 	rate.sleep()
+player.move(0,0)
 rospy.loginfo("Reached the end of the node. Exitting...")
 plt.plot(poseData)
 plt.legend(("x","y","th"))
