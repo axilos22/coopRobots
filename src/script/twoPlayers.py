@@ -8,12 +8,12 @@ import random
 import matplotlib.pyplot as plt
 #module setup
 rospy.init_node("player_node",anonymous=True)
-rate=rospy.Rate(30)
+rate=rospy.Rate(33.33)
 name=rospy.get_param("~name","blue1")
 teamChannel=rospy.get_param("~teamchannel","teamspeak")
 partner=rospy.get_param("~partner","blue2")
-opGoal=rospy.get_param("~oppositeGoal","yellow_goal")
 isLeading=rospy.get_param("~isLeading",False)
+opGoal=rospy.get_param("~oppositeGoal","yellow_goal")
 rospy.loginfo("Node initialized: name=%s teamchannel=%s partner=%s isLeading=%d",name,teamChannel,partner,isLeading)
 #player setup
 from soccer.controller import RobotController
@@ -29,7 +29,7 @@ turnThreshold = .09
 approachThreshold = .2
 collisionThreshold=.12
 contactDistancewithBall=.09
-minDistanceToGoal=.2
+minDistanceToGoal=.1
 minOrientationToGoal= .6
 sleepTimeAvoidance=1
 maxFieldLength=4
@@ -49,11 +49,18 @@ omega = -v/ratio
 #~ Kro=3.0
 #~ Kalpha=8.0
 #~ Kbeta=-1.5
-Kro=3.0
-Kalpha=8.0
+Kro=3.5
+Kalpha=8.
 Kbeta=-1.5
 ## PLOTTING ##
 poseData=[]
+## Strategy ##
+b2pose=[-.9,.6,0]
+b3pose=[-.9,-.6,0]
+y2pose=[.9,.6,0]
+y3pose=[.9,-.6,0]
+### ASSERT ###
+assert(player.rel),"POSE MANAGER has failed or is NOT RUNNING"
 #################### FUNCTIONS #################### 
 #~ desiredPose=[0,0,math.pi]
 desiredPose=[0,0,0]
@@ -65,7 +72,11 @@ def errorVector(x,y,th):
 def poseVector():
 	x=player._pose[name].x
 	y=player._pose[name].y
+	#change to [0,2pi]
+	#~ th=-(player._pose[name].theta+math.pi)
 	th=player._pose[name].theta
+	#~ rospy.loginfo("THETA=%f",th)
+	#~ exit()
 	return [x,y,th]
 def ro(deltaX,deltaY):
 	return math.sqrt(math.pow(deltaX,2)+math.pow(deltaY,2))
@@ -74,8 +85,8 @@ def alpha(th,deltaX,deltaY):
 def beta(th,alpha):
 	return -th-alpha
 def vw():
-	global poseData
 	[x,y,th]=poseVector()
+	global poseData
 	poseData.append([x,y,th])
 	[deltaX,deltaY,deltaTh]=errorVector(x,y,th)
 	ALPHA=alpha(th,deltaX,deltaY)
@@ -85,6 +96,7 @@ def vw():
 	w=Kalpha*ALPHA+Kbeta*BETA
 	#rescale to coordinates
 	[v,w]=rescale(v,w)
+	[v,w]=filterVW(v,w)
 	return [v,w]
 def rescale(v,w,vMul=7764,vDiv=50,wMul=644,wDiv=50):
 	"""rescale(v,w,vMul,vDiv,wMul,wDiv) brings back the mesure of kinematics controller into the proportions of simulator.
@@ -97,7 +109,7 @@ def isCloseToLocation(location,distThreshold=approachThreshold):
 		return True
 	else:
 		return False
-def isCloseToLocation(x,y,distThreshold=.1):
+def isCloseToLocation(x,y,distThreshold=.08):
 	[xr,yr,thr]=poseVector()
 	ro = math.sqrt(math.pow(x-xr,2)+math.pow(y-yr,2))
 	if ro <distThreshold:
@@ -112,12 +124,15 @@ def getShootingPose():
 	#y=mx+b
 	m=(yb-yg)/(xb-xg)
 	b=yg-m*xg
-	rospy.loginfo("m=%f b=%f",m,b)
-	xs=xb+.1
+	rospy.logdebug("m=%f b=%f",m,b)
+	if opGoal=="yellow_goal":
+		xs=xb+.2
+	else:
+		xs=xb-.2
 	ys=m*xs+b
-	rospy.loginfo("S=[%f,%f]",xs,ys)
+	rospy.logdebug("S=[%f,%f]",xs,ys)
 	return [xs,ys]
-def filterVW(v,w,minSpeed=200):
+def filterVW(v,w,minSpeed=300):
 	if v>1000:
 		v=1000
 	if v<-1000:
@@ -153,12 +168,18 @@ def checkSurrounding():
 			collider=el
 	return collider
 def isScored():
+	"""isScored might fail if posemanager is not started"""
 	relDGoal= player.rel["yellow_goal"][0]
 	relDBall= player.rel["ball"][0]
 	relOGoal= player.rel["yellow_goal"][1]
 	relOBall= player.rel["ball"][1]
+	relDGoalB= player.rel["blue_goal"][0]
+	relOGoalB= player.rel["blue_goal"][1]
 	if abs(relDGoal-relDBall)<minDistanceToGoal and abs(relOGoal-relOBall)<minOrientationToGoal:
-		rospy.loginfo("I probably scored. FWI:goal dist: %s",player.rel["yellow_goal"][0])
+		rospy.loginfo("I probably scored into YELLOW FWI:goal dist: %s",player.rel["yellow_goal"][0])
+		return True
+	elif abs(relDGoalB-relDBall)<minDistanceToGoal and abs(relOGoalB-relOBall)<minOrientationToGoal:
+		rospy.loginfo("I probably scored into BLUE. FWI:goal dist: %s",player.rel["yellow_goal"][0])
 		return True
 	else:
 		return False
@@ -170,22 +191,40 @@ def goto(location):
 	desiredPose = [player._pose[location].x,player._pose[location].y,0]
 	while isCloseToLocation(location)==False:
 		[v,w]=vw()
-		rospy.loginfo("applied V=%f W=%f",v,w)
+		rospy.logdebug("applied V=%f W=%f",v,w)
 		player.move(v,w)
-		rospy.sleep(.3)
-	rospy.loginfo("location reached")
+		rate.sleep()
+	rospy.loginfo("%s location reached",name)
 	return
 def goto(x,y,th=0):
 	global desiredPose
 	desiredPose=[x,y,th]
 	while isCloseToLocation(x,y)==False:
 		[v,w]=vw()
-		#~ rospy.loginfo("applied V=%f W=%f",v,w)
+		rospy.logdebug("applied V=%f W=%f",v,w)
 		player.move(v,w)
 		rate.sleep()
-		rate.sleep()
-	rospy.loginfo("location reached")
+	rospy.loginfo("%s location reached",name)
 	return
+def gotodesired():
+	[v,w]=vw()
+	rospy.logdebug("applied V=%f W=%f",v,w)
+	player.move(v,w)
+	rate.sleep()
+	return
+def gotoShootingPose():
+	global desiredPose
+	rospy.loginfo("@gotoShootingPose")
+	[xs,ys]=getShootingPose()
+	rospy.logdebug("[%s] going to: [%f,%f]",name,xs,ys)
+	desiredPose=[xs,ys,0]
+	while isCloseToLocation(xs,ys,.04)==False:
+		gotodesired()
+		[xBall,yBall]=[player._pose["ball"].x,player._pose["ball"].y]
+		if (abs(xBall-xs)>.5) or (abs(yBall-ys)>.5):
+			rospy.loginfo("recompute desired pose")
+			[xs,ys]=getShootingPose()
+			desiredPose=[xs,ys,0]
 def checkObstacle():
 	for el in players:
 		distToElement=player.rel[el]
@@ -238,34 +277,57 @@ def shoot():
 #################### COMMUNICATION #################### 
 def behave(msg):
 	global once
+	rospy.loginfo("[%s] got %s",name,msg.data)
 	if msg.data==name:
 		once=False
-		rospy.loginfo("My turn")
-		goto("ball")
-		passBall("yellow_goal")
+		rospy.loginfo("[%s] My turn",name)
+		#~ [xs,ys]=getShootingPose()
+		#~ desiredPose=[xs,ys,0]
+		#~ goto(xs,ys)
+		#improvement for dynamically going to the shooting position
+		gotoShootingPose()
+		rospy.loginfo("[%s] location reached",name)
+		turnToward("ball")
+		shoot()
 		pub.publish(partner)
 	else:
-		rospy.loginfo("Not my turn")
+		rospy.loginfo("[%s] Not my turn",name)
+		if name=="blue2":
+			rospy.loginfo("[%s] I go to [%f,%f,%f]",name,b2pose[0],b2pose[1],b2pose[2])
+			goto(b2pose[0],b2pose[1],b2pose[2])
+		if name=="blue3":
+			rospy.loginfo("[%s] I go to [%f,%f,%f]",name,b3pose[0],b3pose[1],b3pose[2])
+			goto(b3pose[0],b3pose[1],b3pose[2])
+		if name=="yellow2":
+			rospy.loginfo("[%s] I go to [%f,%f,%f]",name,b2pose[0],b2pose[1],b2pose[2])
+			goto(y2pose[0],y2pose[1],y2pose[2])
+		if name=="yellow3":
+			rospy.loginfo("[%s] I go to [%f,%f,%f]",name,b3pose[0],b3pose[1],b3pose[2])
+			goto(y3pose[0],y3pose[1],y3pose[2])
 	return
 #################### EXECUTIVE SECTION #################### 
 #INIT PART
 player.move(0,0) #player is initially stopped
 loop=0
+pub=rospy.Publisher(teamChannel,String,queue_size=1)
+rospy.Subscriber(teamChannel,String,behave)
 rospy.on_shutdown(stopNode)
+#Once allow the leader to only push his leading message once
+#made to prevent from a leader to read his own published message,
+# denying partner's turn
+once=True
+#LOOP PART
 while not rospy.is_shutdown():
-	#~ [v,w] = vw()
-	#~ rospy.loginfo("[%d] applied V=%f W=%f",loop,v,w)
-	#~ player.move(v,w)
-	#~ goto("blue_goal")
-	[xs,ys]=getShootingPose()
-	rospy.loginfo("going to: [%f,%f]",xs,ys)
-	goto(xs,ys)
-	if isCloseToLocation(xs,ys)==True:
+	if isLeading==True and once==True:
+		pub.publish(name)
+		rospy.loginfo("[%d][%s]:Published me",loop,name)
+	if isScored()==True:
+		rospy.loginfo("[%d] GOAL of %s !!!",loop,name)
 		break
-	loop+=1
 	rate.sleep()
+	loop+=1
 player.move(0,0)
 rospy.loginfo("Reached the end of the node. Exitting...")
-plt.plot(poseData)
-plt.legend(("x","y","th"))
-plt.show()
+#~ plt.plot(poseData)
+#~ plt.legend(("x","y","th"))
+#~ plt.show()

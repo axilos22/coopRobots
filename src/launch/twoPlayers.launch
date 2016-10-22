@@ -1,16 +1,19 @@
 
 <launch>
 	<!--<node name="rqt_console" pkg="rqt_console" type="rqt_console"/>-->
-	<node name="player1_node" pkg="soccer_player" type="twoPlayers.py" output="screen">
-		<param name="name" type="str" value="blue2"/>
+	<node name="p1_node" pkg="soccer_player" type="twoPlayers.py" output="screen">
+		<param name="name" type="str" value="yellow2"/>
 		<param name="teamchannel" type="str" value="/teamspeak"/>
-		<param name="isLeading" type="bool" value="true"/>
-		<param name="partner" type="str" value="blue3"/>
+		<param name="isLeading" type="bool" value="True"/>
+		<param name="partner" type="str" value="yellow3"/>
+		<param name="oppositeGoal" type="str" value="blue_goal"/>
   </node>
-	<!--<node name="player2_node" pkg="soccer_player" type="twoPlayers.py">
-		<param name="name" type="str" value="blue3"/>
+	<!-- -->
+	<node name="p2_node" pkg="soccer_player" type="twoPlayers.py" output="screen">
+		<param name="name" type="str" value="yellow3"/>
 		<param name="teamchannel" type="str" value="/teamspeak"/>
-		<param name="isLeading" type="bool" value="false"/>
-		<param name="partner" type="str" value="blue2"/>
-  </node>-->
+		<param name="isLeading" type="bool" value="False"/>
+		<param name="partner" type="str" value="yellow2"/>
+		<param name="oppositeGoal" type="str" value="blue_goal"/>
+  </node>
 </launch>
