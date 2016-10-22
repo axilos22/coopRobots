@@ -62,7 +62,6 @@ y3pose=[.9,-.6,0]
 ### ASSERT ###
 assert(player.rel),"POSE MANAGER has failed or is NOT RUNNING"
 #################### FUNCTIONS #################### 
-#~ desiredPose=[0,0,math.pi]
 desiredPose=[0,0,0]
 def errorVector(x,y,th):
 	deltaX=desiredPose[0]-x
@@ -72,11 +71,7 @@ def errorVector(x,y,th):
 def poseVector():
 	x=player._pose[name].x
 	y=player._pose[name].y
-	#change to [0,2pi]
-	#~ th=-(player._pose[name].theta+math.pi)
 	th=player._pose[name].theta
-	#~ rospy.loginfo("THETA=%f",th)
-	#~ exit()
 	return [x,y,th]
 def ro(deltaX,deltaY):
 	return math.sqrt(math.pow(deltaX,2)+math.pow(deltaY,2))
