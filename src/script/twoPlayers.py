@@ -13,6 +13,7 @@ name=rospy.get_param("~name","blue1")
 teamChannel=rospy.get_param("~teamchannel","teamspeak")
 partner=rospy.get_param("~partner","blue2")
 isLeading=rospy.get_param("~isLeading",False)
+isGoalie=rospy.get_param("~isGoalie",False)
 opGoal=rospy.get_param("~oppositeGoal","yellow_goal")
 rospy.loginfo("Node initialized: name=%s teamchannel=%s partner=%s isLeading=%d",name,teamChannel,partner,isLeading)
 #player setup
@@ -55,8 +56,10 @@ Kbeta=-1.5
 ## PLOTTING ##
 poseData=[]
 ## Strategy ##
+b1pose=[1.4,0.,math.pi]
 b2pose=[-.9,.6,0]
 b3pose=[-.9,-.6,0]
+y1pose=[-1.4,0.,0]
 y2pose=[.9,.6,0]
 y3pose=[.9,-.6,0]
 ### ASSERT ###
@@ -268,6 +271,9 @@ def shoot():
 	"""as long as no contact, go forward"""
 	while player.rel["ball"][0]>contactDistancewithBall:
 		player.move(1000,0)
+		if player.rel["ball"][0]>1.5:
+			rospy.logwarn("I missed my shot !")
+			break
 	player.move(0,0)
 #################### COMMUNICATION #################### 
 def behave(msg):
@@ -318,7 +324,21 @@ while not rospy.is_shutdown():
 		rospy.loginfo("[%d][%s]:Published me",loop,name)
 	if isScored()==True:
 		rospy.loginfo("[%d] GOAL of %s !!!",loop,name)
-		break
+		#comment to keep playing after goal
+		#break
+	if isGoalie==True:
+		turnToward("ball")
+		if player.rel["ball"][0]<.2:
+			rospy.loginfo("The ball is too close, shoot.")
+			shoot()
+			if opGoal=="yellow_goal":
+				rospy.loginfo("I go back to blue")
+				player.move(-500,0)
+			else:
+				rospy.loginfo("I go back to yellow")
+				player.move(-500,0)
+			rospy.sleep(1) 
+			player.move(0,0)
 	rate.sleep()
 	loop+=1
 player.move(0,0)
